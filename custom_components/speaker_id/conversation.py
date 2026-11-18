@@ -44,6 +44,24 @@ class SpeakerIdAgent(conversation.ConversationEntity):
     def supported_languages(self) -> list[str] | Literal["*"]:
         return MATCH_ALL
 
+    @property
+    def supports_streaming(self) -> bool:
+        """Stream when the agent requests are passed to streams.
+
+        That agent writes its reply into the same chat log the pipeline listens to, so text
+        to speech can start on the first sentence ("Let me check...") instead of waiting
+        for the whole answer.
+        """
+        if self.hass is None:
+            return False
+        info = conversation.async_get_agent_info(self.hass, self._target())
+        return bool(info and info.supports_streaming)
+
+    def _target(self) -> str:
+        """The agent requests are passed to (Home Assistant's own when none, or itself)."""
+        target = self._entry.options.get(CONF_AGENT) or conversation.HOME_ASSISTANT_AGENT
+        return conversation.HOME_ASSISTANT_AGENT if target == self.entity_id else target
+
     async def async_process(
         self, user_input: conversation.ConversationInput
     ) -> conversation.ConversationResult:
@@ -57,9 +75,7 @@ class SpeakerIdAgent(conversation.ConversationEntity):
                 continue_conversation=reply[1],
             )
         options = self._entry.options
-        target = options.get(CONF_AGENT) or conversation.HOME_ASSISTANT_AGENT
-        if target == self.entity_id:
-            target = conversation.HOME_ASSISTANT_AGENT
+        target = self._target()
         context = user_input.context
         prompt = user_input.extra_system_prompt
         speaker = CURRENT.get()

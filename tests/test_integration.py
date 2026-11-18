@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterable
+from unittest.mock import patch
 
 from homeassistant.components import conversation, stt
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import entity_registry as er, intent
+from homeassistant.helpers import chat_session, entity_registry as er, intent
 from homeassistant.setup import async_setup_component
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -397,6 +398,92 @@ async def test_calibrate_and_delete(
 
     assert report["applied"] and report["speakers"]["tata"]["separable"]
     assert list(stack.service.store.speakers) == ["tata"]
+
+
+class StreamingAgent(RecordingAgent):
+    """Target agent that streams its reply into the chat log, like an LLM agent does."""
+
+    async def async_process(
+        self, user_input: conversation.ConversationInput
+    ) -> conversation.ConversationResult:
+        self.inputs.append(user_input)
+
+        async def deltas():
+            yield {"role": "assistant"}
+            yield {"content": "Let me check. "}
+            yield {"content": "It is dry."}
+
+        with (
+            chat_session.async_get_chat_session(self.hass, user_input.conversation_id) as session,
+            conversation.async_get_chat_log(self.hass, session, user_input) as chat_log,
+        ):
+            async for _ in chat_log.async_add_delta_content_stream("test_agent", deltas()):
+                pass
+        response = intent.IntentResponse(language="pl")
+        response.async_set_speech("Let me check. It is dry.")
+        return conversation.ConversationResult(
+            response=response, conversation_id=user_input.conversation_id
+        )
+
+
+async def test_agent_streams_when_target_streams(
+    hass: HomeAssistant, stack: Stack, entry: MockConfigEntry
+) -> None:
+    """Streaming follows the target agent: off for a non-streaming one, on for a streaming one."""
+    agent_id, _ = _target(hass)
+    await _setup(hass, entry, **{CONF_AGENT: agent_id})
+    assert conversation.async_get_agent_info(hass, AGENT).supports_streaming is False
+
+    original = conversation.async_get_agent_info
+
+    def info(hass_: HomeAssistant, wanted: str | None = None):
+        found = original(hass_, wanted)
+        if wanted == agent_id and found is not None:
+            return conversation.AgentInfo(id=found.id, name=found.name, supports_streaming=True)
+        return found
+
+    with patch("homeassistant.components.conversation.async_get_agent_info", side_effect=info):
+        assert hass.states.get(AGENT) is not None
+        entity = hass.data["entity_components"]["conversation"].get_entity(AGENT)
+        assert entity.supports_streaming is True
+
+
+async def test_agent_without_target_does_not_stream(
+    hass: HomeAssistant, stack: Stack, entry: MockConfigEntry
+) -> None:
+    """No target set: requests go to Home Assistant's own agent, which doesn't stream."""
+    await _setup(hass, entry)
+    assert conversation.async_get_agent_info(hass, AGENT).supports_streaming is False
+
+
+async def test_streamed_reply_reaches_the_pipeline_listener(
+    hass: HomeAssistant, stack: Stack, entry: MockConfigEntry
+) -> None:
+    """The target writes into the chat log the pipeline opened, so its deltas reach the
+    pipeline's listener through the wrapper (what lets text to speech start early)."""
+    other = MockConfigEntry(domain="test_agent")
+    other.add_to_hass(hass)
+    target = StreamingAgent()
+    target.hass = hass
+    conversation.async_set_agent(hass, other, target)
+    await _setup(hass, entry, **{CONF_AGENT: other.entry_id})
+
+    deltas: list[dict] = []
+    with (
+        chat_session.async_get_chat_session(hass) as session,
+        conversation.async_get_chat_log(
+            hass, session, chat_log_delta_listener=lambda _log, delta: deltas.append(delta)
+        ),
+    ):
+        result = await conversation.async_converse(
+            hass, "is it dry", session.conversation_id, Context(), language="pl", agent_id=AGENT
+        )
+
+    assert result.response.speech["plain"]["speech"] == "Let me check. It is dry."
+    assert [d.get("content") for d in deltas if d.get("content")] == [
+        "Let me check. ",
+        "It is dry.",
+    ]
 
 
 # --- the real assist pipeline: STT and the agent in one run ---
