@@ -97,6 +97,45 @@
     "sensor": {
       "last_speaker": {
         "name": "Last speaker"
+      },
+      "enrollment": {
+        "name": "Recording",
+        "state": {
+          "idle": "Idle",
+          "recording": "Recording"
+        }
+      },
+      "calibration": {
+        "name": "Calibration",
+        "state": {
+          "separable": "Voices separable",
+          "overlap": "Voices overlap",
+          "no_voices": "No voices"
+        }
+      }
+    },
+    "select": {
+      "person": {
+        "name": "Person"
+      },
+      "satellite": {
+        "name": "Satellite"
+      }
+    },
+    "number": {
+      "samples": {
+        "name": "Samples to record"
+      }
+    },
+    "button": {
+      "start_enrollment": {
+        "name": "Start recording"
+      },
+      "stop_enrollment": {
+        "name": "Stop recording"
+      },
+      "calibrate": {
+        "name": "Calibrate"
       }
     }
   },
@@ -222,6 +261,14 @@
     "rebuild_voiceprints": {
       "name": "Rebuild voiceprints",
       "description": "Computes every sample again from its saved recording (e.g. after changing the model). Samples without a recording keep their voiceprint."
+    }
+  },
+  "exceptions": {
+    "choose_person": {
+      "message": "Choose whose voice to record (Person)."
+    },
+    "choose_satellite": {
+      "message": "Choose the satellite that guides the recording (Satellite)."
     }
   }
 }

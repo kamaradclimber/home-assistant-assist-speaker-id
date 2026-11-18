@@ -40,12 +40,24 @@ def prompt_for(stored: str | None, language: str | None) -> str:
 
 EVENT_IDENTIFIED = f"{DOMAIN}_identified"
 SIGNAL_RESULT = f"{DOMAIN}_result_{{entry_id}}"
+# the enrollment or the calibration on the device changed (start, sample, end; a new report)
+SIGNAL_ENROLLMENT = f"{DOMAIN}_enrollment_{{entry_id}}"
+SIGNAL_CALIBRATION = f"{DOMAIN}_calibration_{{entry_id}}"
+DEFAULT_SAMPLES = 10
 
 # entity ids independent of the HA language (key = unique id suffix)
 ENTITY_IDS = {
     "last_speaker": "sensor.speaker_id_last_speaker",
     "stt": "stt.speaker_id_speech_to_text",
     "conversation": "conversation.speaker_id_agent",
+    "person": "select.speaker_id_person",
+    "satellite": "select.speaker_id_satellite",
+    "samples": "number.speaker_id_samples",
+    "start_enrollment": "button.speaker_id_start_enrollment",
+    "stop_enrollment": "button.speaker_id_stop_enrollment",
+    "enrollment": "sensor.speaker_id_enrollment",
+    "calibrate": "button.speaker_id_calibrate",
+    "calibration": "sensor.speaker_id_calibration",
 }
 # default ids of earlier versions, built by HA from the translated name - renamed on setup
 LEGACY_OBJECT_IDS = {

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 import logging
+import re
 import time
 from typing import Any
 
@@ -18,6 +19,35 @@ _LOGGER = logging.getLogger(__name__)
 
 # the last utterance stays in RAM only this long (enrollment from "what I just said")
 LAST_SECONDS = 600
+
+# what Whisper writes for silence or noise - nobody said it, so it is never a voice sample
+HALLUCINATIONS = frozenset(
+    {
+        "dziękuję",
+        "dziękuję bardzo",
+        "dziękuję za uwagę",
+        "dzięki za uwagę",
+        "dziękuję za obejrzenie",
+        "thank you",
+        "thanks for watching",
+        "thank you for watching",
+        "you",
+        "bye",
+    }
+)
+
+
+def has_words(text: str) -> bool:
+    """The transcript holds something somebody said (not empty, not a Whisper hallucination).
+
+    The energy VAD alone takes room noise, a click or the satellite's own prompt for speech in
+    a quiet room; Whisper hears no words there, so its transcript decides what is a sample.
+    """
+    words = re.findall(r"\w+", text.lower())
+    if not words:
+        return False
+    sentence = " ".join(words)
+    return sentence not in HALLUCINATIONS and "amara" not in words
 
 
 @dataclass
@@ -98,7 +128,12 @@ class SpeakerService:
         extra: dict[str, Any] = {**result.to_dict(), "speech_seconds": round(utt.speech_seconds, 2)}
         enrollment = self.enrollment
         if enrollment is not None:
-            if embedding is not None and utt.speech_seconds >= self.settings.enroll_min_speech:
+            rejected = None
+            if not has_words(text):
+                rejected = "no_text"  # silence or noise: no words, whatever the VAD says
+            elif embedding is None or utt.speech_seconds < self.settings.enroll_min_speech:
+                rejected = "too_short"
+            if rejected is None:
                 score = self.store.add_sample(
                     enrollment.speaker, embedding, utt.speech_seconds, text, utt.audio
                 )
@@ -113,7 +148,17 @@ class SpeakerService:
                 )
                 if enrollment.done >= enrollment.count:
                     self.enrollment = None
+            else:
+                _LOGGER.info(
+                    "Enrollment %s: utterance not taken (%s, %.1f s speech): %s",
+                    enrollment.speaker,
+                    rejected,
+                    utt.speech_seconds,
+                    text,
+                )
             extra["enrollment"] = enrollment.to_dict()
+            if rejected is not None:
+                extra["enrollment"]["rejected"] = rejected
         _LOGGER.info(
             "Speaker %s (score %.2f, %.1f s speech: %s): %s",
             result.speaker or "unknown",
@@ -140,6 +185,8 @@ class SpeakerService:
         last = self.last()
         if last is None or last.embedding is None:
             raise LookupError("no recent utterance with enough speech")
+        if not has_words(last.text):
+            raise LookupError("the last utterance has no words (silence or noise)")
         return self.store.add_sample(
             speaker_id, last.embedding, last.speech_seconds, last.text, last.audio
         )

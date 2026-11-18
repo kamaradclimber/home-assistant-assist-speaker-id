@@ -97,6 +97,45 @@
     "sensor": {
       "last_speaker": {
         "name": "Ostatni mówca"
+      },
+      "enrollment": {
+        "name": "Nagrywanie",
+        "state": {
+          "idle": "Bezczynny",
+          "recording": "Nagrywa"
+        }
+      },
+      "calibration": {
+        "name": "Kalibracja",
+        "state": {
+          "separable": "Głosy rozdzielne",
+          "overlap": "Głosy się nakładają",
+          "no_voices": "Brak głosów"
+        }
+      }
+    },
+    "select": {
+      "person": {
+        "name": "Osoba"
+      },
+      "satellite": {
+        "name": "Satelita"
+      }
+    },
+    "number": {
+      "samples": {
+        "name": "Próbki do nagrania"
+      }
+    },
+    "button": {
+      "start_enrollment": {
+        "name": "Rozpocznij nagrywanie"
+      },
+      "stop_enrollment": {
+        "name": "Zakończ nagrywanie"
+      },
+      "calibrate": {
+        "name": "Kalibruj"
       }
     }
   },
@@ -222,6 +261,14 @@
     "rebuild_voiceprints": {
       "name": "Przelicz wzorce",
       "description": "Liczy każdą próbkę od nowa z jej zapisanego nagrania (np. po zmianie modelu). Próbki bez nagrania zostają bez zmian."
+    }
+  },
+  "exceptions": {
+    "choose_person": {
+      "message": "Wybierz, czyj głos nagrać (Osoba)."
+    },
+    "choose_satellite": {
+      "message": "Wybierz satelitę, która poprowadzi nagrywanie (Satelita)."
     }
   }
 }

@@ -282,6 +282,14 @@ changes, instead of reading the text with a Piper voice.
 
 ## Voiceprints and calibration
 
+**Easiest from the device** (Settings → Devices & services → Assist Speaker ID → the
+**Assist Speaker ID** device): choose **Person**, **Satellite** and **Samples to record**, then
+**Start recording** – the satellite guides the recording itself and the voice is mapped to the
+person at once. Progress: the **Recording** sensor. Only a sentence in which Whisper heard words
+counts – silence and the noise of an empty room never become a sample. The **Calibrate** button shows the calibration
+result as a notification (and in the **Calibration** sensor) and changes nothing; set the threshold
+in the integration's options. The actions below do the same, e.g. in automations.
+
 | Action | What it does |
 |---|---|
 | `speaker_id.start_enrollment` | `speaker: anna`, `name: Anna`, `count: 10`, optionally `satellite: assist_satellite.…`: the next 10 utterances with at least 1.5 s of speech become Anna's samples. **With `satellite` the speaker guides the enrollment itself**, without the wake word. It asks for the first sentence, and after each one says once "Recorded 3 of 10. Next sentence." and keeps listening right away, without executing the command. It asks for a longer one when the sentence was too short, and asks again after silence or a broken-off conversation. It finishes after the last sample ("Done, …") or after 3 attempts without a new one. Without `satellite` every sentence starts with the wake word. Progress is visible in the sensor's `enrollment` attribute. **Another series adds to the saved samples** and counts all of them: a third series of 10 says "Recorded 24 of 30". |

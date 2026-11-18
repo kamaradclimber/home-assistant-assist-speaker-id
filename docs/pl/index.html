@@ -410,22 +410,35 @@ satelity sensor „Ostatni mówca” pokazuje <code>unknown</code> (nie ma jeszc
 <p>Każdy domownik nagrywa 10–15 zwykłych zdań. Najwygodniej robi to <strong>nagrywanie
 prowadzone</strong>: satelita sama prosi o kolejne zdania, bez słowa wybudzającego.</p>
 <ol>
-  <li>Narzędzia deweloperskie → Akcje → <code>speaker_id.start_enrollment</code>:
-<pre><code>action: speaker_id.start_enrollment
-data:
-  speaker: anna            # id osoby: małe litery, bez spacji
-  name: Anna               # nazwa wypowiadana i wyświetlana
-  count: 10
-  satellite: assist_satellite.salon   # satelita, przy której stoi Anna</code></pre></li>
+  <li>Ustawienia → Urządzenia i usługi → Assist Speaker ID → urządzenie <strong>Assist Speaker ID</strong>.
+    Wybierz <strong>Osoba</strong> (osoba z Home Assistant), <strong>Satelita</strong> (przy której stoi) i
+    <strong>Próbki do nagrania</strong> (domyślnie 10), potem naciśnij <strong>Rozpocznij nagrywanie</strong>.
+    Głos dostaje id osoby (np. <code>person.anna</code> → <code>anna</code>) i od razu jest do niej
+    przypisany w konfiguracji – nie trzeba pisać akcji. Postęp pokazuje czujnik <strong>Nagrywanie</strong>
+    (<code>done</code>, <code>total</code>, <code>target</code>), przerwanie: <strong>Zakończ nagrywanie</strong>.</li>
   <li>Satelita mówi: „Nagrywam wzorzec głosu: Anna. Powiedz zwykłe polecenie, na przykład: jaka będzie
     jutro pogoda.” i słucha.</li>
   <li>Anna mówi dowolne zdanie, np. „Jaka będzie jutro pogoda w Krakowie?”. Polecenie
     <strong>nie jest wykonywane</strong>; satelita od razu odpowiada „Nagrano 1 z 10. Kolejne
     zdanie.” i słucha dalej.</li>
-  <li>Za krótkie zdanie (poniżej 1,5 s mowy) nie liczy się – satelita poprosi o dłuższe. Po
-    ciszy albo urwanej rozmowie sama zapyta ponownie, a po 3 próbach bez nowej próbki zakończy.</li>
+  <li>Za krótkie zdanie (poniżej 1,5 s mowy) nie liczy się – satelita poprosi o dłuższe. Liczy się
+    tylko zdanie, w którym rozpoznawanie mowy (Whisper) usłyszało słowa: cisza, szum, stuknięcie czy
+    końcówka komunikatu satelity w pustym pokoju nie trafią do wzorca – satelita powie „Nic nie
+    usłyszałem.”. Po ciszy albo urwanej rozmowie sama zapyta ponownie, a po 3 próbach bez nowej próbki
+    zakończy.</li>
   <li>Po ostatniej próbce: „Gotowe. Wzorzec głosu: Anna, liczba próbek: 10.”. Wzorzec działa od razu.</li>
+  <li>Gdy nagrasz wszystkich domowników, naciśnij na tym samym urządzeniu <strong>Kalibruj</strong>.
+    Wynik przychodzi od razu jako <strong>powiadomienie</strong> w Home Assistant (dzwonek na pasku
+    bocznym): tabelka osób z liczbą próbek, rozdzielnością głosów i sugerowanym progiem, a pod nią
+    co zrobić dalej. Szczegóły: <a href="#progi">Kalibracja</a>.</li>
 </ol>
+<p><strong>To samo akcją</strong> (np. w automatyzacji albo skrypcie):</p>
+<pre><code>action: speaker_id.start_enrollment
+data:
+  speaker: anna            # id osoby: małe litery, bez spacji
+  name: Anna               # nazwa wypowiadana i wyświetlana
+  count: 10
+  satellite: assist_satellite.salon   # satelita, przy której stoi Anna</code></pre>
 <p>Bez pola <code>satellite</code> nagrywanie też działa, ale każde zdanie zaczyna się od słowa
 wybudzającego. Postęp widać w atrybucie <code>enrollment</code> sensora „Ostatni mówca”. Przerwanie:
 <code>speaker_id.stop_enrollment</code>.</p>
@@ -441,6 +454,12 @@ modelu. Próbki sprzed wersji 0.2.0 nie mają nagrań i zostają bez zmian.</p>
 <code>speaker_id.reset_speaker</code> (usuwa próbki i nagrania, osoba zostaje) i nagrywanie jeszcze raz. Pojedyncze
 zdanie dodasz po fakcie akcją <code>speaker_id.add_last_sample</code>: ostatnia wypowiedź (najwyżej
 sprzed 10 min) staje się próbką wskazanej osoby.</p>
+<p><strong>Próbki nagrały się z ciszy?</strong> Objaw: licznik nagrywania rośnie, choć nikt nic nie
+powiedział, a w logu usługi po <code>Speaker unknown (…)</code> nie ma żadnego tekstu. Przyczyna: usługa
+starsza niż ta poprawka liczyła czas mowy tylko po głośności, więc szum cichego pokoju albo
+komunikat satelity brała za mowę. Rozwiązanie: zaktualizuj usługę (teraz zdanie bez słów nie jest
+próbką), usuń złe próbki (API <code>DELETE /api/speakers/&lt;osoba&gt;/samples/&lt;n&gt;</code> albo
+<code>speaker_id.reset_speaker</code> i nagranie od nowa) i naciśnij <strong>Kalibruj</strong>.</p>
 <p class="tip"><strong>Dobre próbki:</strong> nagrywaj przez tę satelitę i z tej odległości, z
 której domownik zwykle mówi – mikrofon i pomieszczenie zmieniają głos bardziej niż słowa. Używaj
 zwykłych poleceń po kilka słów, zwykłym tonem (krzyk, szept i śmiech zaniżają wyniki). Nagraj
@@ -522,6 +541,11 @@ nie było. Pomyłka jest gorsza niż brak rozpoznania, więc domyślnie system j
 pierwszeństwo przed opcjami dodatku i zmiennymi środowiska. Te są tylko wartościami startowymi.</p>
 
 <h3>Kalibracja</h3>
+<p><strong>Z urządzenia:</strong> przycisk <strong>Kalibruj</strong> na urządzeniu Assist Speaker ID liczy raport i od
+razu pokazuje go jako powiadomienie: tabelka osób z liczbą próbek, najgorszą własną próbką, najbliższym
+obcym głosem, rozdzielnością i sugerowanym progiem. Ten sam raport ma czujnik <strong>Kalibracja</strong>
+(stan: „Głosy rozdzielne” albo „Głosy się nakładają”). Przycisk niczego nie zmienia – próg ustawiasz w
+konfiguracji dodatku (Konfiguruj).</p>
 <p>Akcja <code>speaker_id.calibrate</code> porównuje próbki każdej osoby z jej wzorcem i z próbkami
 pozostałych osób, a potem proponuje próg. Z <code>apply: true</code> od razu zapisuje progi
 osób.</p>

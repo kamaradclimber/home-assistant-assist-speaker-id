@@ -8,6 +8,7 @@ all samples are recorded. No wake word needed.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 import logging
 from typing import TYPE_CHECKING
@@ -78,6 +79,10 @@ class Guide:
     replied: bool = False  # the agent answered this turn itself (enrollment_reply)
     final_spoken: bool = False  # the agent already said "done" (enrollment_reply)
     active: bool = True
+    # why the service did not take the last answer: "no_text" (silence, noise), "too_short"
+    rejected: str | None = None
+    # told after every change (a sample, the end) - the device's enrollment sensor
+    on_change: Callable[[], None] | None = None
 
     def __post_init__(self) -> None:
         language = (self.hass.config.language or "en").split("-")[0]
@@ -125,9 +130,11 @@ class Guide:
         if result.enrollment.get("speaker") != self.speaker:
             return
         self.answered = True
+        self.rejected = result.enrollment.get("rejected")
         done = int(result.enrollment.get("done", 0))
         self.misses = 0 if done > self.done else self.misses + 1
         self.done = done
+        self._changed()
 
     @callback
     def agent_replied(self, finished: bool) -> None:
@@ -166,7 +173,10 @@ class Guide:
             self.stop()
             self.hass.async_create_task(self._say(self.message("stopped")))
             return
-        key = "silence" if not self.answered else ("short" if self.misses else "next")
+        if not self.answered or (self.misses and self.rejected == "no_text"):
+            key = "silence"  # nothing, or only noise the service did not take as a sample
+        else:
+            key = "short" if self.misses else "next"
         self.hass.async_create_task(self._ask(self.message(key)))
 
     @callback
@@ -191,3 +201,9 @@ class Guide:
             _LOGGER.info(
                 "Guided enrollment of %s ended (%d/%d)", self.speaker, self.done, self.count
             )
+            self._changed()
+
+    @callback
+    def _changed(self) -> None:
+        if self.on_change is not None:
+            self.on_change()

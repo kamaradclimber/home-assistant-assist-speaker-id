@@ -1,5 +1,6 @@
 line-length = 100
 target-version = "py312"
+extend-exclude = ["backup"]  # local copies of edited files
 
 [lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]

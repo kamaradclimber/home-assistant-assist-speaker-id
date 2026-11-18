@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 - 2026-11-18
+
+- Enrollment takes only utterances with words: an empty transcript or Whisper's usual
+  hallucination on silence („Dziękuję.”, „Napisy stworzone przez społeczność Amara.org”) is no
+  sample, even when the energy VAD found seconds of "speech" in room noise. The `enrollment`
+  field says why an utterance was not taken: `rejected: no_text` or `too_short`.
+  `samples/last` refuses such an utterance too.
+
 ## 0.2.0 - 2026-10-25
 
 - Every voice sample keeps its recording (`/data/recordings/<speaker>/*.wav`, also for uploaded

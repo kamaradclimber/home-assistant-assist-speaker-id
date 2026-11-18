@@ -36,6 +36,7 @@ class FakeAsr(AsyncEventHandler):
     received: ClassVar[list[str]] = []
     audio_bytes = 0
     streaming = False
+    text = "jakie mam dzisiaj zajęcia"  # what "Whisper" heard; "" = silence or noise
 
     async def handle_event(self, event: Event) -> bool:
         FakeAsr.received.append(event.type)
@@ -52,13 +53,14 @@ class FakeAsr(AsyncEventHandler):
             if FakeAsr.streaming:
                 await self.write_event(TranscriptStart(language="pl").event())
                 await self.write_event(TranscriptChunk(text="jakie mam").event())
-            await self.write_event(Transcript(text="jakie mam dzisiaj zajęcia").event())
+            await self.write_event(Transcript(text=FakeAsr.text).event())
         return True
 
 
 @pytest.fixture
 async def proxy(service: SpeakerService) -> AsyncIterator[int]:
     FakeAsr.received, FakeAsr.audio_bytes, FakeAsr.streaming = [], 0, False
+    FakeAsr.text = "jakie mam dzisiaj zajęcia"
     up_port, proxy_port = free_port(), free_port()
     upstream = AsyncTcpServer("127.0.0.1", up_port)
     server = AsyncTcpServer("127.0.0.1", proxy_port)
@@ -166,6 +168,64 @@ async def test_enrollment_takes_next_utterances(proxy: int, service: SpeakerServ
     after = (await transcribe(proxy, pcm(voice(180, seed=4))))[-1]
     assert after.data["speaker"] == "jan"
     assert "enrollment" not in after.data
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["", "  ", "...", "Dziękuję.", "Thank you.", "Napisy stworzone przez społeczność Amara.org"],
+)
+async def test_enrollment_skips_utterances_without_words(
+    proxy: int, service: SpeakerService, text: str
+) -> None:
+    """A quiet room: the VAD takes noise for seconds of speech, Whisper hears no words (or its
+    usual hallucination) - that is not the speaker's voice, so it is never a sample."""
+    from wyoming_speaker_id.service import Enrollment
+
+    service.store.upsert("jan", "Jan", None)
+    service.enrollment = Enrollment("jan", 2)
+    FakeAsr.text = text
+
+    event = (await transcribe(proxy, pcm(voice(180, seed=1))))[-1]
+
+    assert event.data["speech_seconds"] >= 1.5  # enough "speech" for the VAD
+    assert event.data["enrollment"]["done"] == 0
+    assert event.data["enrollment"]["rejected"] == "no_text"
+    assert service.store.speakers["jan"].samples == []
+    assert service.enrollment is not None  # still waiting for a real sentence
+
+    FakeAsr.text = "jaka będzie jutro pogoda"
+    taken = (await transcribe(proxy, pcm(voice(180, seed=2))))[-1]
+    assert taken.data["enrollment"]["done"] == 1
+    assert "rejected" not in taken.data["enrollment"]
+
+
+async def test_enrollment_says_too_short(proxy: int, service: SpeakerService) -> None:
+    from wyoming_speaker_id.service import Enrollment
+
+    service.store.upsert("jan", "Jan", None)
+    service.enrollment = Enrollment("jan", 2)
+    event = (await transcribe(proxy, pcm(voice(180, seconds=0.8))))[-1]
+    assert event.data["enrollment"]["rejected"] == "too_short"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("jaka będzie jutro pogoda", True),
+        ("Włącz światło.", True),
+        ("Dziękuję, włącz światło", True),  # a real sentence that starts with „dziękuję”
+        ("", False),
+        (" . , ", False),
+        ("Dziękuję.", False),
+        ("Dziękuję za uwagę!", False),
+        ("Thanks for watching!", False),
+        ("Napisy wykonane przez społeczność Amara.org", False),
+    ],
+)
+def test_has_words(text: str, expected: bool) -> None:
+    from wyoming_speaker_id.service import has_words
+
+    assert has_words(text) is expected
 
 
 async def test_second_series_counts_all_samples(proxy: int, service: SpeakerService) -> None:

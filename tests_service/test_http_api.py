@@ -68,6 +68,21 @@ async def test_last_utterance_as_sample(api: TestClient, service: SpeakerService
     assert added["samples"] == 1
 
 
+async def test_last_utterance_without_words_is_no_sample(
+    api: TestClient, service: SpeakerService
+) -> None:
+    utt = utterance(pcm(voice(150)), 16000, 2, 1, 8.0)
+    embedding, result = service.analyse(utt)
+    service.finish(utt, embedding, result, "")  # noise the VAD took for speech
+    await api.put("/api/speakers/tomek", json={"name": "Tomek"})
+
+    response = await api.post("/api/speakers/tomek/samples/last")
+
+    assert response.status == 400
+    assert "no words" in await response.text()
+    assert service.store.speakers["tomek"].samples == []
+
+
 async def test_enrollment_start_stop(api: TestClient, service: SpeakerService) -> None:
     started = await (
         await api.post("/api/enrollment", json={"speaker": "tosia", "count": 5})

@@ -280,6 +280,14 @@ zmian, zamiast czytać tekst głosem Pipera.
 
 ## Wzorce głosu i kalibracja
 
+**Najprościej z urządzenia** (Ustawienia → Urządzenia i usługi → Assist Speaker ID → urządzenie
+**Assist Speaker ID**): wybierz **Osoba**, **Satelita** i **Próbki do nagrania**, potem
+**Rozpocznij nagrywanie** – satelita sama poprowadzi nagrywanie, a głos od razu zostaje przypisany do
+osoby. Postęp: czujnik **Nagrywanie**. Liczy się tylko zdanie, w którym Whisper usłyszał słowa –
+cisza i szum pustego pokoju nie trafią do wzorca. Przycisk **Kalibruj** pokazuje wynik kalibracji jako
+powiadomienie (i w czujniku **Kalibracja**) i niczego nie zmienia; próg ustawiasz w konfiguracji
+dodatku. Te same rzeczy robią akcje poniżej, np. w automatyzacjach.
+
 | Akcja | Co robi |
 |---|---|
 | `speaker_id.start_enrollment` | `speaker: anna`, `name: Anna`, `count: 10`, opcjonalnie `satellite: assist_satellite.…`: kolejne 10 wypowiedzi z co najmniej 1,5 s mowy to próbki Anny. **Z `satellite` głośnik prowadzi nagrywanie sam**, bez słowa wybudzającego. Prosi o pierwsze zdanie, a po każdym mówi raz „Nagrano 3 z 10. Kolejne zdanie.” i od razu słucha dalej, bez wykonywania polecenia. Prosi o dłuższe, gdy zdanie było za krótkie, i ponawia pytanie po ciszy albo urwanej rozmowie. Kończy po ostatniej próbce („Gotowe…”) albo po 3 próbach bez nowej. Bez `satellite` każde zdanie zaczyna się od słowa wybudzającego. Postęp widać w atrybucie `enrollment` sensora. **Kolejna seria dochodzi do zapisanych próbek** i liczy wszystkie: trzecia seria po 10 mówi „Nagrano 24 z 30”. |

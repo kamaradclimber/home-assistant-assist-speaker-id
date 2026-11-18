@@ -594,6 +594,38 @@ async def test_guided_enrollment_asks_for_each_sample(
     assert entry.runtime_data.guide is not None and not entry.runtime_data.guide.active
 
 
+async def test_guided_enrollment_in_a_quiet_room(
+    hass: HomeAssistant, stack: Stack, entry: MockConfigEntry
+) -> None:
+    """Nobody speaks: room noise looks like speech to the VAD, but Whisper hears no words -
+    no sample, the satellite says it heard nothing (bug from 2026-11-18: 2 noise samples)."""
+    from tests_service.test_handler import FakeAsr
+
+    asks, _ = await _guided(hass, stack, entry, count=2)
+    FakeAsr.text = ""
+    await _turn(hass, pcm(voice(180, seed=1)))
+    assert asks[-1].data["start_message"].startswith("Nic nie usłyszałem.")
+    assert entry.runtime_data.guide.done == 0
+    assert stack.service.store.speakers["jan"].samples == []
+
+    FakeAsr.text = "jaka będzie jutro pogoda"
+    await _turn(hass, pcm(voice(180, seed=2)))
+    assert asks[-1].data["start_message"] == "Nagrano 1 z 2. Kolejne zdanie."
+
+
+async def test_enrollment_reply_in_a_quiet_room(
+    hass: HomeAssistant, stack: Stack, entry: MockConfigEntry
+) -> None:
+    from custom_components.speaker_id.api import enrollment_reply
+    from tests_service.test_handler import FakeAsr
+
+    await _guided(hass, stack, entry, count=2)
+    FakeAsr.text = "Dziękuję."  # Whisper's usual answer to silence
+    await _transcribe(hass, pcm(voice(180, seed=1)))
+    text, keep_listening = enrollment_reply(hass)
+    assert text.startswith("Nic nie usłyszałem.") and keep_listening
+
+
 async def test_guided_second_series_counts_all_samples(
     hass: HomeAssistant, stack: Stack, entry: MockConfigEntry
 ) -> None:

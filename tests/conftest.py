@@ -56,6 +56,7 @@ class Stack:
 @pytest.fixture
 async def stack(tmp_path: Path, socket_enabled) -> AsyncIterator[Stack]:
     FakeAsr.received, FakeAsr.audio_bytes, FakeAsr.streaming = [], 0, False
+    FakeAsr.text = "jakie mam dzisiaj zajęcia"
     up, port, api_port = free_port(), free_port(), free_port()
     store = SpeakerStore(tmp_path / "speakers.json", threshold=0.8, margin=0.05)
     service = SpeakerService(Settings(upstream=f"tcp://127.0.0.1:{up}"), store, FakeEmbedder())

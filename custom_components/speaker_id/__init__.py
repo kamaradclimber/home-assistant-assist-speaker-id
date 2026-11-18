@@ -31,18 +31,27 @@ from .const import (
     CONF_PEOPLE,
     CONF_PROBABLE_THRESHOLD,
     DEFAULT_PROBABLE_THRESHOLD,
+    DEFAULT_SAMPLES,
     DOMAIN,
     ENTITY_IDS,
     EVENT_IDENTIFIED,
     LEGACY_OBJECT_IDS,
     SIGNAL_RESULT,
 )
+from .enrollment import async_start_enrollment, async_stop_enrollment
 from .guide import Guide
 from .speaker import SpeakerResult
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.CONVERSATION, Platform.SENSOR, Platform.STT]
+PLATFORMS = [
+    Platform.BUTTON,
+    Platform.CONVERSATION,
+    Platform.NUMBER,
+    Platform.SELECT,
+    Platform.SENSOR,
+    Platform.STT,
+]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 SPEAKER = vol.All(cv.string, vol.Match(r"^[a-z0-9_]{1,32}$"))
@@ -56,6 +65,14 @@ class RuntimeData:
     last: SpeakerResult | None = None
     guide: Guide | None = None  # guided enrollment (the satellite asks by itself)
     enrolled: int = 0  # samples of the current enrollment (did this utterance add one)
+    # the device's choices for recording a voiceprint (select and number entities)
+    person: str | None = None
+    satellite: str | None = None
+    samples: int = DEFAULT_SAMPLES
+    # the last calibration from the device: {"report": …, "names": {speaker: name}}
+    calibration: dict[str, Any] | None = None
+    # an options change that needs no reload (a person mapped to a voice by the device)
+    skip_reload: bool = False
 
 
 type SpeakerIdConfigEntry = ConfigEntry[RuntimeData]
@@ -95,6 +112,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: SpeakerIdConfigEntry) -
 
 
 async def _options_updated(hass: HomeAssistant, entry: SpeakerIdConfigEntry) -> None:
+    if entry.runtime_data.skip_reload:  # the person mapping is read live: keep the enrollment
+        entry.runtime_data.skip_reload = False
+        return
     await hass.config_entries.async_reload(entry.entry_id)
 
 
@@ -166,7 +186,7 @@ def _migrate_entity_ids(hass: HomeAssistant, entry: SpeakerIdConfigEntry) -> Non
     for key, new_entity_id in ENTITY_IDS.items():
         domain = new_entity_id.split(".")[0]
         entity_id = registry.async_get_entity_id(domain, DOMAIN, f"{entry.entry_id}-{key}")
-        if entity_id is None or entity_id.split(".")[1] not in LEGACY_OBJECT_IDS[key]:
+        if entity_id is None or entity_id.split(".")[1] not in LEGACY_OBJECT_IDS.get(key, ()):
             continue
         if registry.async_get(new_entity_id) is None:
             registry.async_update_entity(entity_id, new_entity_id=new_entity_id)
@@ -202,28 +222,17 @@ def _register_services(hass: HomeAssistant) -> None:
             raise HomeAssistantError(str(err)) from err
 
     async def start_enrollment(service: ServiceCall) -> ServiceResponse:
-        speaker, count = service.data["speaker"], service.data["count"]
-        body = {"speaker": speaker, "count": count}
-        if name := service.data.get("name"):
-            body["name"] = name
-        response = await call("enrollment", "POST", body)
-        runtime = _entry(hass).runtime_data
-        runtime.enrolled = 0
-        if runtime.guide is not None:
-            runtime.guide.stop()
-            runtime.guide = None
-        if satellite := service.data.get("satellite"):
-            start = int(response.get("total", 0)) if isinstance(response, dict) else 0
-            runtime.guide = Guide(hass, satellite, speaker, name or speaker, count, start=start)
-            await runtime.guide.async_start()
-        return response
+        return await async_start_enrollment(
+            hass,
+            _entry(hass),
+            service.data["speaker"],
+            service.data.get("name"),
+            service.data["count"],
+            service.data.get("satellite"),
+        )
 
     async def stop_enrollment(service: ServiceCall) -> ServiceResponse:
-        runtime = _entry(hass).runtime_data
-        if runtime.guide is not None:
-            runtime.guide.stop()
-            runtime.guide = None
-        return await call("enrollment", "DELETE")
+        return await async_stop_enrollment(hass, _entry(hass))
 
     async def add_last_sample(service: ServiceCall) -> ServiceResponse:
         return await call(f"speakers/{service.data['speaker']}/samples/last", "POST")

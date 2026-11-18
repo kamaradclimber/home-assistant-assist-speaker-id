@@ -63,7 +63,9 @@ def enrollment_reply(hass: HomeAssistant) -> tuple[str, bool] | None:
             name = guide.name
     values = {"name": name, "done": done, "count": count, "total": total, "target": target}
     if not result.sample_added:
-        return text["short"], True
+        # no words (silence, noise) or too little speech - the service says which
+        key = "silence" if result.enrollment.get("rejected") == "no_text" else "short"
+        return text[key], True
     if finished:
         return text["done"].format(**values), False
     return text["sample"].format(**values), True

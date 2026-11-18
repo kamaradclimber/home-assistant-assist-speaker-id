@@ -3,6 +3,31 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions: [SemVer](https://semver.org/).
 Add-on (service) changes: [speaker_id/CHANGELOG.md](speaker_id/CHANGELOG.md).
 
+## [0.3.0] - 2026-11-18
+
+### Added
+- **Recording a voiceprint from the device**, like Wake Word Recorder: the Assist Speaker ID device
+  has **Person** (a person of Home Assistant), **Satellite**, **Samples to record** (1-50, 10 by
+  default) and the buttons **Start recording** / **Stop recording** - the satellite guides the
+  recording, no `speaker_id.start_enrollment` to write. The voice gets the person's id and is mapped
+  to the person in the options at once (without reloading, the recording goes on); a person already
+  mapped adds to their voice. The **Recording** sensor shows the progress (`done`, `total`,
+  `target`), also for the action. The choices survive a restart.
+- **Calibrate** button: the report shows at once as a notification (a table per person: samples,
+  worst own, closest other, separable, suggested threshold) and in the **Calibration** sensor
+  (voices separable / overlap). It changes nothing; thresholds stay in the options.
+
+### Changed
+- The conversation agent streams its reply when the agent requests are passed to streams, so text
+  to speech starts on the first sentence of a streaming LLM agent instead of waiting for the whole
+  answer (#1, thanks @OptikCrash). A non-streaming agent and the agent's own replies work as before.
+
+### Fixed
+- Recording in a quiet room no longer saves noise as the person's voice: an utterance without words
+  (Whisper heard nothing, or only its usual „Dziękuję.”) is no sample, and the satellite says
+  „Nic nie usłyszałem.” instead of „Za krótko.”. Needs the add-on (service)
+  0.3.0.
+
 ## [0.2.1] - 2026-11-12
 
 ### Added

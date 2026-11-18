@@ -417,25 +417,37 @@ through the service.</p>
 <p>Each household member records 10–15 ordinary sentences. The easiest way is <strong>guided
 enrollment</strong>: the satellite asks for each next sentence itself, no wake word needed.</p>
 <ol>
-  <li>Developer tools → Actions → <code>speaker_id.start_enrollment</code>:
-<pre><code>action: speaker_id.start_enrollment
-data:
-  speaker: anna            # person id: lowercase, no spaces
-  name: Anna               # name that is spoken and displayed
-  count: 10
-  satellite: assist_satellite.salon   # the satellite Anna is standing next to</code></pre></li>
+  <li>Settings → Devices &amp; services → Assist Speaker ID → the <strong>Assist Speaker ID</strong> device.
+    Choose <strong>Person</strong> (a person of Home Assistant), <strong>Satellite</strong> (the one they stand
+    by) and <strong>Samples to record</strong> (10 by default), then press <strong>Start recording</strong>.
+    The voice gets the person's id (e.g. <code>person.anna</code> → <code>anna</code>) and is mapped to them in the
+    options at once – no action to write. The <strong>Recording</strong> sensor shows the progress
+    (<code>done</code>, <code>total</code>, <code>target</code>); to break off: <strong>Stop recording</strong>.</li>
   <li>The satellite says: "Recording a voiceprint for Anna. Say a normal command, for example: what
     is the weather tomorrow." and listens.</li>
   <li>Anna says any sentence, e.g. "What will the weather be like in Kraków tomorrow?". The command
     is <strong>not executed</strong>; the satellite immediately replies "Recorded 1 of 10. Next
     sentence." and keeps listening.</li>
   <li>A sentence that is too short (under 1.5 s of speech) does not count – the satellite says "Too
-    short. Please say a longer sentence.". After silence or a cut-off conversation it asks again ("I
+    short. Please say a longer sentence.". Only a sentence in which speech recognition (Whisper)
+    heard words counts: silence, room noise, a click or the end of the satellite's own prompt in an
+    empty room never becomes a sample – the satellite says "I did not hear anything.". After silence or a cut-off conversation it asks again ("I
     did not hear anything. Please say a sentence."), and after 3 attempts without a new sample it
     stops.</li>
   <li>After the last sample: "Done. Voiceprint of Anna: 10 samples.". The voiceprint works right
     away.</li>
+  <li>Once all household members are recorded, press <strong>Calibrate</strong> on the same device.
+    The result arrives at once as a <strong>notification</strong> in Home Assistant (the bell in the
+    sidebar): a table of people with their samples, whether the voices are separable and the
+    suggested threshold, and below it what to do next. Details: <a href="#thresholds">Calibration</a>.</li>
 </ol>
+<p><strong>The same with an action</strong> (e.g. in an automation or a script):</p>
+<pre><code>action: speaker_id.start_enrollment
+data:
+  speaker: anna            # person id: lowercase, no spaces
+  name: Anna               # name that is spoken and displayed
+  count: 10
+  satellite: assist_satellite.salon   # the satellite Anna is standing next to</code></pre>
 <p>Enrollment also works without the <code>satellite</code> field, but then each sentence starts
 with the wake word. Progress is shown in the <code>enrollment</code> attribute of the "Last speaker"
 sensor. To cancel: <code>speaker_id.stop_enrollment</code>.</p>
@@ -452,6 +464,12 @@ change. Samples from versions before 0.2.0 have no recording and stay as they ar
 again. You can add
 a single sentence afterwards with <code>speaker_id.add_last_sample</code>: the last utterance (at
 most 10 min old) becomes a sample of the given person.</p>
+<p><strong>Samples recorded from silence?</strong> Symptom: the recording counter goes up although
+nobody said anything, and in the service log there is no text after <code>Speaker unknown (…)</code>.
+Cause: a service older than this fix measured speech by loudness only, so the noise of a quiet room
+or the satellite's own prompt counted as speech. Fix: update the service (a sentence without words is
+no sample now), delete the bad samples (API <code>DELETE /api/speakers/&lt;person&gt;/samples/&lt;n&gt;</code>
+or <code>speaker_id.reset_speaker</code> and record again) and press <strong>Calibrate</strong>.</p>
 <p class="tip"><strong>Good samples:</strong> record through the satellite and from the distance the
 person usually speaks from – the microphone and the room change the voice more than the words do.
 Use ordinary commands of a few words, in a normal tone (shouting, whispering and laughing lower the
@@ -535,6 +553,11 @@ recognition. A wrong guess is worse than no recognition, so the system is cautio
 take precedence over add-on options and environment variables, which are only initial values.</p>
 
 <h3>Calibration</h3>
+<p><strong>From the device:</strong> the <strong>Calibrate</strong> button of the Assist Speaker ID device computes the
+report and shows it at once as a notification: a table of people with the number of samples, the worst own
+sample, the closest other voice, separability and the suggested threshold. The <strong>Calibration</strong>
+sensor has the same report (state: "Voices separable" or "Voices overlap"). The button changes nothing –
+set the threshold in the integration's options (Configure).</p>
 <p>The <code>speaker_id.calibrate</code> action compares each person's samples with their voiceprint
 and with the other people's samples, then suggests a threshold. With <code>apply: true</code> it
 saves the per-person thresholds right away.</p>
