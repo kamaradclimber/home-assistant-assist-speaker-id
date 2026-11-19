@@ -103,6 +103,7 @@ footer { margin-top: 56px; color: var(--muted); font-size: .9em; }
     <li><a href="#akcje">Akcje i API</a></li>
     <li><a href="#ograniczenia">Ograniczenia</a></li>
     <li><a href="#prywatnosc">Prywatność</a></li>
+    <li><a href="#faq">Najczęstsze problemy</a></li>
   </ol>
 </nav>
 
@@ -747,6 +748,21 @@ ani niczego, co wymaga uwierzytelnienia.</p>
     <code>reset_speaker</code> jej próbki i nagrania;</li>
   <li>domownicy, a przy dzieciach rodzice, powinni wiedzieć o rozpoznawaniu i się na nie zgodzić.</li>
 </ul>
+
+<h2 id="faq">14. Najczęstsze problemy</h2>
+<h3>Instalacja dodatku kończy się błędem <code>pip: not found</code></h3>
+<p><strong>Objaw:</strong> w Home Assistant OS instalacja dodatku Assist Speaker ID 0.3.0 przerywa
+budowę obrazu na kroku <code>RUN pip install -r /app/requirements.txt</code>:
+<code>/bin/ash: pip: not found</code>, kod wyjścia 127.</p>
+<p><strong>Przyczyna:</strong> od Supervisora 2026.04 dodatki są budowane z samego
+<code>Dockerfile</code>, a plik <code>build.yaml</code> jest przestarzały. Dodatek 0.3.0
+wybierał swój obraz bazowy (Debian z Pythonem) właśnie w <code>build.yaml</code>, więc obraz
+zbudował się na obrazie bazowym Home Assistanta (Alpine), w którym nie ma <code>pip</code>.</p>
+<p><strong>Rozwiązanie:</strong> zaktualizuj repozytorium dodatków i zainstaluj dodatek
+<strong>0.3.1</strong> lub nowszy; jego <code>Dockerfile</code> sam podaje obraz
+<code>python:3.12-slim-bookworm</code>. Jeśli sklep pokazuje jeszcze 0.3.0, odśwież go
+w sklepie dodatków (w nowszych wersjach Home Assistanta: aplikacji) przez <em>⋮ → Sprawdź
+aktualizacje</em>.</p>
 
 <footer>Assist Speaker ID (integracja <code>speaker_id</code>, usługa
 <code>wyoming-speaker-id</code>). Licencja Apache-2.0. Model 3D-Speaker CAM++: Apache-2.0, przez

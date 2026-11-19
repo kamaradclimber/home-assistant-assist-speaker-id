@@ -1,7 +1,8 @@
 # One image for a standalone container (e.g. next to Whisper) and for the Home Assistant add-on.
 # Debian (glibc), because sherpa-onnx has no musl wheels (HA base images are Alpine).
-ARG BUILD_FROM=python:3.12-slim-bookworm
-FROM ${BUILD_FROM}
+# A fixed FROM, no BUILD_FROM / build.yaml: Supervisor 2026.04+ builds apps from the Dockerfile alone
+# and may pass its own Alpine base image (no pip) in BUILD_FROM (issue #2).
+FROM python:3.12-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \

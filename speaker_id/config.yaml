@@ -1,5 +1,5 @@
 name: Assist Speaker ID
-version: "0.3.0"
+version: "0.3.1"
 slug: speaker_id
 description: >-
   Speech to text through your Wyoming server (e.g. Whisper) with recognition of who is

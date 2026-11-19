@@ -51,9 +51,16 @@ jobs:
         with:
           path: ./speaker_id
 
+  addon-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # no build args, as Supervisor 2026.04+ builds the app (issue #2)
+      - run: docker build -t speaker-id-test speaker_id
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [service, integration, hassfest, hacs, addon]
+    needs: [service, integration, hassfest, hacs, addon, addon-build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
