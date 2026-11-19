@@ -104,6 +104,7 @@ footer { margin-top: 56px; color: var(--muted); font-size: .9em; }
     <li><a href="#actions">Actions and API</a></li>
     <li><a href="#limitations">Limitations</a></li>
     <li><a href="#privacy">Privacy</a></li>
+    <li><a href="#faq">Common problems</a></li>
   </ol>
 </nav>
 
@@ -769,6 +770,20 @@ alarm or anything else that requires authentication.</p>
   <li>household members – and parents, for children – should know about the recognition and agree
     to it.</li>
 </ul>
+
+<h2 id="faq">14. Common problems</h2>
+<h3>The add-on install fails with <code>pip: not found</code></h3>
+<p><strong>Symptom:</strong> on Home Assistant OS, installing the Assist Speaker ID add-on 0.3.0
+stops the image build at <code>RUN pip install -r /app/requirements.txt</code>:
+<code>/bin/ash: pip: not found</code>, exit code 127.</p>
+<p><strong>Cause:</strong> since Supervisor 2026.04 apps are built from the <code>Dockerfile</code>
+alone and <code>build.yaml</code> is deprecated. Add-on 0.3.0 chose its base image (Debian with
+Python) in <code>build.yaml</code>, so the image was built on the Home Assistant base image
+(Alpine), which has no <code>pip</code>.</p>
+<p><strong>Fix:</strong> refresh the add-on repository and install add-on <strong>0.3.1</strong>
+or newer; its <code>Dockerfile</code> names <code>python:3.12-slim-bookworm</code> itself. If the
+store still shows 0.3.0, refresh it in the add-on store (the app store in newer Home Assistant
+versions) with <em>⋮ → Check for updates</em>.</p>
 
 <footer>Assist Speaker ID (integration <code>speaker_id</code>, service
 <code>wyoming-speaker-id</code>). Apache-2.0 license. 3D-Speaker CAM++ model: Apache-2.0, via

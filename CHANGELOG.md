@@ -3,6 +3,14 @@
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions: [SemVer](https://semver.org/).
 Add-on (service) changes: [speaker_id/CHANGELOG.md](speaker_id/CHANGELOG.md).
 
+## [0.3.1] - 2026-11-19
+
+### Fixed
+- The add-on (app) installs on Home Assistant OS again: the build failed with `pip: not found`,
+  because Supervisor 2026.04+ no longer uses `build.yaml` and built from its own Alpine base image.
+  The Dockerfile now names its Debian base image itself (#2). Needs the add-on 0.3.1; the
+  integration itself is unchanged.
+
 ## [0.3.0] - 2026-11-18
 
 ### Added

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 - 2026-11-19
+
+- Installs on Home Assistant OS again: the Dockerfile has a fixed `FROM python:3.12-slim-bookworm`
+  and `build.yaml` is gone. Supervisor 2026.04+ ignored it and built from its Alpine base image,
+  where `pip` is missing (`pip: not found`, #2).
+
 ## 0.3.0 - 2026-11-18
 
 - Enrollment takes only utterances with words: an empty transcript or Whisper's usual
